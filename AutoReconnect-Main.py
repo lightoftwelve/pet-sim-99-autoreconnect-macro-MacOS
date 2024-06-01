@@ -1,9 +1,13 @@
+import time
 import pyautogui
 import configparser
-import time
 import os
+import logging
 
-# Read settings from Da INI file
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Read settings from the INI file
 config = configparser.ConfigParser()
 config_file = os.path.join(os.path.dirname(__file__), "ReconnectionMacroSettings.ini")
 config.read(config_file)
@@ -12,7 +16,7 @@ config.read(config_file)
 position_map = {}
 for name, value in config.items("PositionMap"):
     x, y = map(int, value.split("|"))
-    position_map[name.lower()] = (x, y)  # Convert keys to lowercase for consistency (just incase shouldn't be needed)
+    position_map[name.lower()] = (x, y)  # Convert keys to lowercase for consistency
 
 # Load toggles map
 toggles_map = {}
@@ -48,17 +52,42 @@ def enable_autofarm():
             time.sleep(0.2)
 
 def disconnected_check():
-    print(position_map)
+    logging.debug("Checking for disconnect box")
+    logging.debug(position_map)
+    
     dcbls = space_out_positions(position_map["disconnectedbackgroundleftside"], 5)[-1]
     dcbrs = space_out_positions(position_map["disconnectedbackgroundrightside"], 5)[-1]
     rcb = space_out_positions(position_map["reconnectbutton"], 10)[-1]
 
-    left_side_pixel = pyautogui.pixelMatchesColor(dcbls[0][0], dcbls[0][1], (0x39, 0x3B, 0x3D), tolerance=2) and \
-                      pyautogui.pixelMatchesColor(dcbls[1][0], dcbls[1][1], (0x39, 0x3B, 0x3D), tolerance=2)
-    right_side_pixel = pyautogui.pixelMatchesColor(dcbrs[0][0], dcbrs[0][1], (0x39, 0x3B, 0x3D), tolerance=2) and \
-                       pyautogui.pixelMatchesColor(dcbrs[1][0], dcbrs[1][1], (0x39, 0x3B, 0x3D), tolerance=2)
-    reconnect_button_pixel = pyautogui.pixelMatchesColor(rcb[0][0] , rcb[0][1], (0xFF, 0xFF, 0xFF), tolerance=0) and \
-                             pyautogui.pixelMatchesColor(rcb[1][0], rcb[1][1], (0xFF, 0xFF, 0xFF), tolerance=0)
+    # Colors you captured
+    left_side_color1 = (39, 40, 35)
+    left_side_color2 = (39, 40, 35)
+    right_side_color1 = (62, 61, 51)
+    right_side_color2 = (62, 61, 51)
+    reconnect_button_color1 = (39, 40, 35)
+    reconnect_button_color2 = (39, 40, 35)
+
+    actual_left_color1 = pyautogui.pixel(dcbls[0][0], dcbls[0][1])
+    actual_left_color2 = pyautogui.pixel(dcbls[1][0], dcbls[1][1])
+    actual_right_color1 = pyautogui.pixel(dcbrs[0][0], dcbrs[0][1])
+    actual_right_color2 = pyautogui.pixel(dcbrs[1][0], dcbrs[1][1])
+    actual_reconnect_color1 = pyautogui.pixel(rcb[0][0], rcb[0][1])
+    actual_reconnect_color2 = pyautogui.pixel(rcb[1][0], rcb[1][1])
+
+    logging.debug(f"Left side actual colors: {actual_left_color1} {actual_left_color2}")
+    logging.debug(f"Right side actual colors: {actual_right_color1} {actual_right_color2}")
+    logging.debug(f"Reconnect button actual colors: {actual_reconnect_color1} {actual_reconnect_color2}")
+
+    left_side_pixel = (pyautogui.pixelMatchesColor(dcbls[0][0], dcbls[0][1], left_side_color1, tolerance=100) and
+                       pyautogui.pixelMatchesColor(dcbls[1][0], dcbls[1][1], left_side_color2, tolerance=100))
+    right_side_pixel = (pyautogui.pixelMatchesColor(dcbrs[0][0], dcbrs[0][1], right_side_color1, tolerance=100) and
+                        pyautogui.pixelMatchesColor(dcbrs[1][0], dcbrs[1][1], right_side_color2, tolerance=100))
+    reconnect_button_pixel = (pyautogui.pixelMatchesColor(rcb[0][0], rcb[0][1], reconnect_button_color1, tolerance=100) and
+                              pyautogui.pixelMatchesColor(rcb[1][0], rcb[1][1], reconnect_button_color2, tolerance=100))
+
+    logging.debug(f"Left side pixel match: {left_side_pixel}")
+    logging.debug(f"Right side pixel match: {right_side_pixel}")
+    logging.debug(f"Reconnect button pixel match: {reconnect_button_pixel}")
 
     return left_side_pixel and right_side_pixel and reconnect_button_pixel
 
@@ -86,7 +115,7 @@ def teleport_to_zone(zone_name):
             break_time = time.time()
 
         if time.time() - secondary_break_time >= 20:
-            print("Yikes")
+            logging.info("Yikes")
             break
 
         time.sleep(0.1)
@@ -103,7 +132,12 @@ def teleport_to_zone(zone_name):
     time.sleep(number_value_map["tpwaittime"] / 1000)
 
 def main():
+    # Initial delay to allow for manual interruption
+    logging.info("Starting in 5 seconds... Press Ctrl+C to stop.")
+    time.sleep(5)
+
     while True:
+        logging.debug("Checking for disconnect box")
         if disconnected_check():
             break_time = time.time()
             while True:
@@ -128,6 +162,7 @@ def main():
 
         time.sleep(9)
         pyautogui.click(pyautogui.size()[0] // 2, pyautogui.size()[1] // 2)
+        logging.info("Clicked in the middle of the screen")
 
 if __name__ == "__main__":
     main()
